@@ -14,13 +14,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Directories for music library, temporary downloads, and streamrip/deemix config
 RUN mkdir -p /app/music /app/temp_downloads /root/.config/streamrip /root/.config/deemix
+# Create non-root user
+RUN useradd -u 1000 -m appuser
 # Copy the streamrip config file to the location streamrip expects for root user
 COPY docker/streamrip_config.toml /root/.config/streamrip/config.toml
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir streamrip && \
-    pip install --no-cache-dir -r requirements.txt && \
+RUN pip install --no-cache-dir -r requirements.txt && \
     # Ensure certifi's certificates are part of the system's trusted CAs
     python -c "import certifi; import shutil; shutil.copyfile(certifi.where(), '/usr/local/share/ca-certificates/certifi.crt')" && \
     update-ca-certificates
