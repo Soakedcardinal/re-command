@@ -272,6 +272,7 @@ document.addEventListener('alpine:init', () => {
                     LLM_MODEL_NAME: document.getElementById('llmModelName').value.trim(),
                     LLM_API_KEY: document.getElementById('llmApiKey').value.trim(),
                     LLM_BASE_URL: document.getElementById('llmBaseUrl').value.trim(),
+                    LLM_MAX_TOKENS: document.getElementById('llmMaxTokens')?.value.trim() ? parseInt(document.getElementById('llmMaxTokens').value) : null,
                     LLM_PROMPT_TEMPLATE: document.getElementById('llmPromptTemplate')?.value.trim() || '',
                 };
                 const data = await API.updateConfig(config);

@@ -380,6 +380,10 @@
                                 <input type="text" id="llmModelName" :value="config ? config.LLM_MODEL_NAME : ''" placeholder="e.g., gemini-3-flash-preview">
                             </div>
                             <div class="form-group">
+                                <label for="llmMaxTokens">Max Tokens (optional):</label>
+                                <input type="number" id="llmMaxTokens" :value="config ? config.LLM_MAX_TOKENS : ''" placeholder="empty = no cap">
+                            </div>
+                            <div class="form-group">
                                 <label for="llmPromptTemplate">Prompt Template (optional):</label>
                                 <textarea id="llmPromptTemplate" rows="8" :value="config ? config.LLM_PROMPT_TEMPLATE : ''" :placeholder="config ? config.LLM_PROMPT_TEMPLATE_DEFAULT : '{listening_history} is replaced with the weekly scrobble JSON'"></textarea>
                             </div>

@@ -41,6 +41,7 @@ echo "LLM_PROVIDER = os.getenv(\"LLM_PROVIDER\", \"${RECOMMAND_LLM_PROVIDER:-gem
 echo "LLM_API_KEY = os.getenv(\"LLM_API_KEY\", \"${RECOMMAND_LLM_API_KEY:-}\")" >> config.py
 echo "LLM_MODEL_NAME = os.getenv(\"LLM_MODEL_NAME\", \"${RECOMMAND_LLM_MODEL_NAME:-}\")" >> config.py
 echo "LLM_BASE_URL = os.getenv(\"LLM_BASE_URL\", \"${RECOMMAND_LLM_BASE_URL:-}\")" >> config.py
+echo "LLM_MAX_TOKENS = int(os.getenv(\"LLM_MAX_TOKENS\")) if os.getenv(\"LLM_MAX_TOKENS\", \"\").strip() else None" >> config.py
 LLM_PROMPT_TEMPLATE="${RECOMMAND_LLM_PROMPT_TEMPLATE:-}"
 if [ -n "$LLM_PROMPT_TEMPLATE" ]; then
     echo "LLM_PROMPT_TEMPLATE = $(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' \"$LLM_PROMPT_TEMPLATE\")" >> config.py

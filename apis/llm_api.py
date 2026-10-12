@@ -25,13 +25,14 @@ class LlmCancelled(Exception):
 
 
 class LlmAPI:
-    def __init__(self, provider, gemini_api_key=None, openrouter_api_key=None, llama_api_key=None, model_name=None, base_url=None, prompt_template=None):
+    def __init__(self, provider, gemini_api_key=None, openrouter_api_key=None, llama_api_key=None, model_name=None, base_url=None, llama_max_tokens=None, prompt_template=None):
         self.provider = provider
         self.gemini_api_key = gemini_api_key
         self.openrouter_api_key = openrouter_api_key
         self.llama_api_key = llama_api_key
         self.model_name = model_name
         self.base_url = base_url
+        self.llama_max_tokens = llama_max_tokens
         self.prompt_template = prompt_template
         self.last_stats = None
 
@@ -119,9 +120,12 @@ class LlmAPI:
                     "model": llama_model,
                     "messages": [{"role": "user", "content": prompt}],
                 }
+                if self.llama_max_tokens:
+                    data["max_tokens"] = self.llama_max_tokens
                 data["stream"] = True
                 self.last_stats = {'prompt_chars': len(prompt)}
                 print(f"LLM request: prompt_chars={len(prompt)} "
+                      f"max_tokens={'omitted (server window)' if not self.llama_max_tokens else self.llama_max_tokens} "
                       f"model={llama_model} url={self.llama_url}", file=sys.stderr)
                 print(f"LLM prompt head: {prompt[:400]!r}", file=sys.stderr)
                 t0 = time.time()

@@ -361,6 +361,7 @@ def get_config():
         "LLM_API_KEY": "••••••••" if LLM_API_KEY else "",
         "LLM_MODEL_NAME": globals().get("LLM_MODEL_NAME", ""),
         "LLM_BASE_URL": globals().get("LLM_BASE_URL", ""),
+        "LLM_MAX_TOKENS": globals().get("LLM_MAX_TOKENS"),
         "LLM_PROMPT_TEMPLATE": globals().get("LLM_PROMPT_TEMPLATE", ""),
         "LLM_PROMPT_TEMPLATE_DEFAULT": DEFAULT_PROMPT_TEMPLATE,
         "CRON_SCHEDULE": get_current_cron_schedule()
@@ -436,6 +437,12 @@ def update_config():
                 new_value_str_for_file = f'"{value}"'
             elif key in {'SOULSEEK_SEARCH_TIMEOUT', 'SOULSEEK_MIN_QUALITY', 'FRESH_RELEASES_DAYS', 'FRESH_RELEASES_CACHE_DURATION', 'DEEZER_MAX_CONCURRENT_REQUESTS'}:
                 new_value_str_for_file = str(int(value))
+            elif key == 'LLM_MAX_TOKENS':
+                if value is None or not str(value).strip():
+                    value = None
+                    new_value_str_for_file = "None"
+                else:
+                    new_value_str_for_file = str(int(value))
             elif key == 'LLM_PROMPT_TEMPLATE':
                 value = str(value).strip() if value else ""
                 new_value_str_for_file = repr(value)
@@ -834,6 +841,7 @@ async def get_llm_playlist():
             llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
             model_name=globals().get('LLM_MODEL_NAME'),
             base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+            llama_max_tokens=globals().get('LLM_MAX_TOKENS') if LLM_PROVIDER == 'llama' else None,
             prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
         )
         cancel_event = threading.Event()
@@ -936,6 +944,7 @@ def trigger_llm_download():
         llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
         model_name=globals().get('LLM_MODEL_NAME'),
         base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+        llama_max_tokens=globals().get('LLM_MAX_TOKENS') if LLM_PROVIDER == 'llama' else None,
         prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
     )
     recommendations = llm_api.get_recommendations(scrobbles)
@@ -1372,6 +1381,7 @@ class QueueManager:
             llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
             model_name=globals().get('LLM_MODEL_NAME'),
             base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+            llama_max_tokens=globals().get('LLM_MAX_TOKENS') if LLM_PROVIDER == 'llama' else None,
             prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
         )
         recommendations = llm_api.get_recommendations(scrobbles)
