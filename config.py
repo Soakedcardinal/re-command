@@ -29,6 +29,11 @@ LLM_MAX_TOKENS = int(os.getenv("RECOMMAND_LLM_MAX_TOKENS")) if os.getenv("RECOMM
 LLM_PROMPT_TEMPLATE = os.getenv("RECOMMAND_LLM_PROMPT_TEMPLATE", "")
 LLM_TARGET_COMMENT = os.getenv("RECOMMAND_LLM_TARGET_COMMENT", "llm_recommendation")
 
+NTFY_ENABLED = os.getenv("RECOMMAND_NTFY_ENABLED", "False").lower() == "true"
+NTFY_URL = os.getenv("RECOMMAND_NTFY_URL", "")
+NTFY_TOPIC = os.getenv("RECOMMAND_NTFY_TOPIC", "")
+NTFY_TOKEN = os.getenv("RECOMMAND_NTFY_TOKEN", "")
+
 DEEZER_ARL = os.getenv("RECOMMAND_DEEZER_ARL", "")
 DOWNLOAD_METHOD = os.getenv("RECOMMAND_DOWNLOAD_METHOD", "streamrip")
 

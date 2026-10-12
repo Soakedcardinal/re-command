@@ -364,6 +364,10 @@ def get_config():
         "LLM_MAX_TOKENS": globals().get("LLM_MAX_TOKENS"),
         "LLM_PROMPT_TEMPLATE": globals().get("LLM_PROMPT_TEMPLATE", ""),
         "LLM_PROMPT_TEMPLATE_DEFAULT": DEFAULT_PROMPT_TEMPLATE,
+        "NTFY_ENABLED": globals().get("NTFY_ENABLED", False),
+        "NTFY_URL": globals().get("NTFY_URL", ""),
+        "NTFY_TOPIC": globals().get("NTFY_TOPIC", ""),
+        "NTFY_TOKEN": "••••••••" if globals().get("NTFY_TOKEN", "") else "",
         "CRON_SCHEDULE": get_current_cron_schedule()
     })
 
@@ -412,7 +416,7 @@ def update_config():
             current_config_content = f.read()
 
         # Define sensitive fields that should not be overwritten if masked
-        sensitive_fields = {'ROOT_ND', 'PASSWORD_ND', 'TOKEN_LB', 'LASTFM_API_KEY', 'LASTFM_API_SECRET', 'LASTFM_SESSION_KEY', 'DEEZER_ARL', 'LLM_API_KEY', 'SOULSEEK_PASSWORD'}
+        sensitive_fields = {'ROOT_ND', 'PASSWORD_ND', 'TOKEN_LB', 'LASTFM_API_KEY', 'LASTFM_API_SECRET', 'LASTFM_SESSION_KEY', 'DEEZER_ARL', 'LLM_API_KEY', 'SOULSEEK_PASSWORD', 'NTFY_TOKEN'}
 
         # Prepare a list to hold the updated lines
         updated_lines = current_config_content.splitlines()
@@ -430,7 +434,7 @@ def update_config():
                 continue
 
             # Determine the string representation for writing to config.py
-            if key in {'LISTENBRAINZ_ENABLED', 'LASTFM_ENABLED', 'ALBUM_RECOMMENDATION_ENABLED', 'HIDE_DOWNLOAD_FROM_LINK', 'HIDE_FRESH_RELEASES', 'LLM_ENABLED', 'SOULSEEK_KEEP_ALIVE', 'SOULSEEK_SHARE_MUSIC'}:
+            if key in {'LISTENBRAINZ_ENABLED', 'LASTFM_ENABLED', 'ALBUM_RECOMMENDATION_ENABLED', 'HIDE_DOWNLOAD_FROM_LINK', 'HIDE_FRESH_RELEASES', 'LLM_ENABLED', 'SOULSEEK_KEEP_ALIVE', 'SOULSEEK_SHARE_MUSIC', 'NTFY_ENABLED'}:
                 # Ensure boolean values are written as True/False (Python literal)
                 new_value_str_for_file = str(value) 
             elif key in ('DOWNLOAD_METHOD', 'LLM_PROVIDER'):
@@ -888,7 +892,6 @@ async def get_llm_playlist():
 
                 print(f"LLM generated {len(recommendations)} recommendations, {len(available_recommendations)} available on Deezer")
 
-
             # Fetch recording_mbid and release_mbid for each available recommendation to enable feedback and album art
             processed_recommendations = []
             for rec in available_recommendations:
@@ -979,6 +982,20 @@ def trigger_llm_download():
 
         if not recommendations:
             return jsonify({"status": "error", "message": "LLM failed to generate recommendations for download."})
+    else:
+        recommendations = provided
+
+    try:
+        owned_songs = navidrome_api_global.get_owned_songs()
+        kept = [r for r in recommendations if not navidrome_api_global.song_in_library(r['artist'], r['title'], owned_songs)]
+        skipped = len(recommendations) - len(kept)
+        if skipped:
+            print(f"Skipping {skipped} track(s) already in the library")
+        recommendations = kept
+    except Exception as e:
+        print(f"Library check failed: {e}")
+    if not recommendations:
+        return jsonify({"status": "info", "message": "Nothing new to download: all suggestions are already in your library."})
 
     download_id = str(uuid.uuid4())
     total = len(recommendations)

@@ -25,6 +25,7 @@ document.addEventListener('alpine:init', () => {
         listenbrainzOptionsVisible: false,
         lastfmOptionsVisible: false,
         llmOptionsVisible: false,
+        ntfyOptionsVisible: false,
         maxConcurrentDownloads: 1,
         activeDownloadCount: 0,
         pendingDownloads: new Set(),
@@ -81,6 +82,7 @@ document.addEventListener('alpine:init', () => {
             this.listenbrainzOptionsVisible = this.config.LISTENBRAINZ_ENABLED;
             this.lastfmOptionsVisible = this.config.LASTFM_ENABLED;
             this.llmOptionsVisible = this.config.LLM_ENABLED;
+            this.ntfyOptionsVisible = this.config.NTFY_ENABLED;
             if (this.config.max_concurrent_downloads) {
                 this.maxConcurrentDownloads = this.config.max_concurrent_downloads;
             }
@@ -274,6 +276,10 @@ document.addEventListener('alpine:init', () => {
                     LLM_BASE_URL: document.getElementById('llmBaseUrl').value.trim(),
                     LLM_MAX_TOKENS: document.getElementById('llmMaxTokens')?.value.trim() ? parseInt(document.getElementById('llmMaxTokens').value) : null,
                     LLM_PROMPT_TEMPLATE: document.getElementById('llmPromptTemplate')?.value.trim() || '',
+                    NTFY_ENABLED: document.getElementById('ntfyEnabled').checked,
+                    NTFY_URL: document.getElementById('ntfyUrl').value.trim(),
+                    NTFY_TOPIC: document.getElementById('ntfyTopic').value.trim(),
+                    NTFY_TOKEN: document.getElementById('ntfyToken').value.trim()
                 };
                 const data = await API.updateConfig(config);
                 if (data.status === 'success') {

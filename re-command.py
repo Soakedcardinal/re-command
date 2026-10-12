@@ -13,7 +13,7 @@ import aioslsk_compat  # noqa: F401
 from config import *
 from apis.deezer_api import DeezerAPI
 from apis.lastfm_api import LastFmAPI
-from utils import initialize_streamrip_db, update_status_file, DeezerAuthError
+from utils import initialize_streamrip_db, update_status_file, send_ntfy_notification, DeezerAuthError
 from apis.listenbrainz_api import ListenBrainzAPI
 from apis.navidrome_api import NavidromeAPI
 from apis.llm_api import LlmAPI
@@ -276,6 +276,10 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
     message = f"Downloaded {downloaded_count} of {total_count} tracks."
     title = "Download Complete"
     update_status_file(download_id, "completed", message, title, current_track_count=downloaded_count, total_track_count=total_count)
+    send_ntfy_notification(
+        "New recommendations ready",
+        message
+    )
     return downloaded_count, total_count
 
 async def process_fresh_releases_albums(download_id=None):
@@ -423,6 +427,10 @@ if __name__ == "__main__":
             asyncio.run(process_recommendations(source=args.source, bypass_playlist_check=args.bypass_playlist_check, download_id=args.download_id))
     except Exception as e:
         update_status_file(args.download_id, "failed", f"Download failed: {e}", f"Download failed: {e}")
+        send_ntfy_notification(
+            "re-command run failed",
+            f"Download failed: {e}"
+        )
         raise
     finally:
         if os.path.exists(batch_lock):

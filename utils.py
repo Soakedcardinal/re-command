@@ -350,3 +350,26 @@ def update_status_file(download_id, status, message=None, title=None, current_tr
     with open(status_file_path, 'w') as f:
         json.dump(status_data, f)
     print(f"Updated status file for {download_id}: {status}")
+
+def send_ntfy_notification(title, message):
+    """Send an ntfy push notification (requires NTFY_ENABLED, NTFY_URL, NTFY_TOPIC)."""
+    if not globals().get('NTFY_ENABLED', False):
+        return
+    server_url = globals().get('NTFY_URL', '')
+    topic = globals().get('NTFY_TOPIC', '')
+    if not server_url or not topic:
+        print("ntfy is enabled but NTFY_URL/NTFY_TOPIC are not configured. Skipping notification.")
+        return
+    url = f"{server_url.rstrip('/')}/{topic}"
+    headers = {}
+    token = globals().get('NTFY_TOKEN', '')
+    if token:
+        headers['Authorization'] = f"Bearer {token}"
+    try:
+        response = requests.post(url, json={"title": title, "message": message}, headers=headers, timeout=10)
+        if response.ok:
+            print(f"ntfy notification sent to topic '{topic}'.")
+        else:
+            print(f"ntfy notification rejected (HTTP {response.status_code}): {response.text.strip()}")
+    except Exception as e:
+        print(f"Failed to send ntfy notification: {e}")

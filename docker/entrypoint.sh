@@ -51,6 +51,13 @@ fi
 echo "LLM_TARGET_COMMENT = os.getenv(\"LLM_TARGET_COMMENT\", \"${RECOMMAND_LLM_TARGET_COMMENT:-llm_recommendation}\")" >> config.py
 echo "" >> config.py
 
+# ntfy Push Notification Settings (Optional)
+echo "NTFY_ENABLED = os.getenv(\"NTFY_ENABLED\", \"${RECOMMAND_NTFY_ENABLED:-false}\").lower() == \"true\"" >> config.py
+echo "NTFY_URL = os.getenv(\"NTFY_URL\", \"${RECOMMAND_NTFY_URL:-}\")" >> config.py
+echo "NTFY_TOPIC = os.getenv(\"NTFY_TOPIC\", \"${RECOMMAND_NTFY_TOPIC:-}\")" >> config.py
+echo "NTFY_TOKEN = os.getenv(\"NTFY_TOKEN\", \"${RECOMMAND_NTFY_TOKEN:-}\")" >> config.py
+echo "" >> config.py
+
 # Deezer Configuration (Optional - can be configured via web UI)
 echo "DEEZER_ARL = os.getenv(\"DEEZER_ARL\", \"${RECOMMAND_DEEZER_ARL:-}\")" >> config.py
 echo "" >> config.py
