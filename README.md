@@ -216,6 +216,13 @@ python re-command.py --bypass-playlist-check
 | `RECOMMAND_LLM_PROVIDER` | LLM provider (gemini/openrouter/llama) |
 | `RECOMMAND_LLM_API_KEY` | LLM API key |
 | `RECOMMAND_LLM_MODEL_NAME` | LLM model name |
+| `RECOMMAND_LLM_BASE_URL` | Base URL for Llama.cpp provider (OpenAI-compatible endpoint) |
+| `RECOMMAND_LLM_MAX_TOKENS` | Optional Llama.cpp completion cap in tokens (thinking + answer); unset = no client-side cap, generation is bounded by the server's context window |
+| `RECOMMAND_LLM_PROMPT_TEMPLATE` | Optional custom LLM prompt template; the literal `{listening_history}` is replaced with the weekly scrobble JSON. Unset = built-in default (editable in the settings UI; UI edits are runtime-only and a container recreation re-applies this env value) |
+| `RECOMMAND_NTFY_ENABLED` | Send ntfy push notifications when a recommendation run finishes (or fails) |
+| `RECOMMAND_NTFY_URL` | Base URL of the ntfy server (e.g., https://ntfy.example.com) |
+| `RECOMMAND_NTFY_TOPIC` | ntfy topic to publish to (e.g., recommand) |
+| `RECOMMAND_NTFY_TOKEN` | Optional ntfy access token for servers with authentication |
 | `RECOMMAND_SOULSEEK_USERNAME` | Soulseek username (required for soulseek method) |
 | `RECOMMAND_SOULSEEK_PASSWORD` | Soulseek password |
 | `RECOMMAND_SOULSEEK_SEARCH_TIMEOUT` | Seconds to wait for Soulseek search results (default: 15) |
