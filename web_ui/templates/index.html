@@ -379,6 +379,10 @@
                                 <label for="llmModelName">Model Name (optional):</label>
                                 <input type="text" id="llmModelName" :value="config ? config.LLM_MODEL_NAME : ''" placeholder="e.g., gemini-3-flash-preview">
                             </div>
+                            <div class="form-group">
+                                <label for="llmPromptTemplate">Prompt Template (optional):</label>
+                                <textarea id="llmPromptTemplate" rows="8" :value="config ? config.LLM_PROMPT_TEMPLATE : ''" :placeholder="config ? config.LLM_PROMPT_TEMPLATE_DEFAULT : '{listening_history} is replaced with the weekly scrobble JSON'"></textarea>
+                            </div>
                             <div class="form-group" id="llmApiKeyGroup">
                                 <label for="llmApiKey">API Key:</label>
                                 <input type="password" id="llmApiKey" :value="config ? config.LLM_API_KEY : ''" placeholder="Your LLM API Key">

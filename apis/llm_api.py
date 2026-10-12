@@ -3,14 +3,32 @@ import json
 import sys
 import re
 
+# Built-in prompt template; {listening_history} is replaced with the scrobble JSON.
+DEFAULT_PROMPT_TEMPLATE = """You are a music expert assistant. Based on the following list of recently listened tracks in JSON format, recommend 25 new songs that this listener might like; only include tracks that are not already in the listening history.
+The recommendations should be for a user who enjoys the artists and genres represented in the listening history.
+
+My listening history:
+{listening_history}
+
+Only respond with a single JSON array of objects, where each object represents a recommended track and has the keys "artist", "title", and "album".
+
+Example response format:
+[
+  {"artist": "Example Artist 1", "title": "Example Song 1", "album": "Example Album 1"},
+  {"artist": "Example Artist 2", "title": "Example Song 2", "album": "Example Album 2"}
+]
+"""
+
+
 class LlmAPI:
-    def __init__(self, provider, gemini_api_key=None, openrouter_api_key=None, llama_api_key=None, model_name=None, base_url=None):
+    def __init__(self, provider, gemini_api_key=None, openrouter_api_key=None, llama_api_key=None, model_name=None, base_url=None, prompt_template=None):
         self.provider = provider
         self.gemini_api_key = gemini_api_key
         self.openrouter_api_key = openrouter_api_key
         self.llama_api_key = llama_api_key
         self.model_name = model_name
         self.base_url = base_url
+        self.prompt_template = prompt_template
 
         if self.provider == 'gemini' and self.gemini_api_key:
             # We use the REST API directly for Gemini to avoid version conflicts in the SDK
@@ -44,23 +62,11 @@ class LlmAPI:
             raise ValueError("LLM provider is not configured correctly. Please provide API keys and base URL for Llama.cpp.")
 
     def _build_prompt(self, scrobbles_json):
-        """Builds the prompt for the LLM."""
-        prompt = f"""
-You are a music expert assistant. Based on the following list of recently listened tracks in JSON format, please recommend 25 new songs that this listener might like.
-The recommendations should be for a user who enjoys the artists and genres represented in the listening history. Only recommend tracks that are not already in the listening history.
-
-My listening history:
-{scrobbles_json}
-
-Please provide your response as a single JSON array of objects, where each object represents a recommended track and has the keys "artist", "title", and "album". Do not include any other text or explanations in your response, only the JSON array.
-
-Example response format:
-[
-  {{"artist": "Example Artist 1", "track": "Example Song 1", "album": "Example Album 1"}},
-  {{"artist": "Example Artist 2", "track": "Example Song 2", "album": "Example Album 2"}}
-]
-"""
-        return prompt
+        """Builds the prompt for the LLM from the configured template."""
+        template = self.prompt_template or DEFAULT_PROMPT_TEMPLATE
+        if '{listening_history}' in template:
+            return template.replace('{listening_history}', scrobbles_json)
+        return f"{template}\n\nMy listening history:\n{scrobbles_json}\n"
 
     def get_recommendations(self, scrobbles):
         """

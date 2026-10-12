@@ -157,7 +157,8 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
                 provider=LLM_PROVIDER,
                 gemini_api_key=LLM_API_KEY if LLM_PROVIDER == 'gemini' else None,
                 openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
-                model_name=globals().get('LLM_MODEL_NAME')
+                model_name=globals().get('LLM_MODEL_NAME'),
+                prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
             )
             # Get weekly scrobbles for LLM
             scrobbles = await listenbrainz_api.get_weekly_scrobbles()

@@ -20,7 +20,7 @@ from utils import initialize_streamrip_db, DeezerAuthError
 from apis.listenbrainz_api import ListenBrainzAPI
 from apis.navidrome_api import NavidromeAPI
 from apis.deezer_api import DeezerAPI
-from apis.llm_api import LlmAPI
+from apis.llm_api import LlmAPI, DEFAULT_PROMPT_TEMPLATE
 from downloaders.track_downloader import TrackDownloader
 from downloaders.link_downloader import LinkDownloader
 from utils import Tagger
@@ -358,6 +358,8 @@ def get_config():
         "LLM_API_KEY": "••••••••" if LLM_API_KEY else "",
         "LLM_MODEL_NAME": globals().get("LLM_MODEL_NAME", ""),
         "LLM_BASE_URL": globals().get("LLM_BASE_URL", ""),
+        "LLM_PROMPT_TEMPLATE": globals().get("LLM_PROMPT_TEMPLATE", ""),
+        "LLM_PROMPT_TEMPLATE_DEFAULT": DEFAULT_PROMPT_TEMPLATE,
         "CRON_SCHEDULE": get_current_cron_schedule()
     })
 
@@ -431,6 +433,9 @@ def update_config():
                 new_value_str_for_file = f'"{value}"'
             elif key in {'SOULSEEK_SEARCH_TIMEOUT', 'SOULSEEK_MIN_QUALITY', 'FRESH_RELEASES_DAYS', 'FRESH_RELEASES_CACHE_DURATION', 'DEEZER_MAX_CONCURRENT_REQUESTS'}:
                 new_value_str_for_file = str(int(value))
+            elif key == 'LLM_PROMPT_TEMPLATE':
+                value = str(value).strip() if value else ""
+                new_value_str_for_file = repr(value)
             else:
                 # For other string values, ensure they are quoted
                 new_value_str_for_file = f'"{value}"' if isinstance(value, str) else str(value)
@@ -442,7 +447,8 @@ def update_config():
             # Update the corresponding line in config.py content
             pattern = re.compile(rf'^{key}\s*=\s*.*$', re.MULTILINE)
             if pattern.search(current_config_content): # Only modify if the key exists 
-                current_config_content = pattern.sub(f'{key} = {new_value_str_for_file}', current_config_content)
+                # Callable replacement: plain re.sub would expand \n escapes in repr() values
+                current_config_content = pattern.sub(lambda m: f'{key} = {new_value_str_for_file}', current_config_content)
 
         # Write updated config.py file for persistence
         with open('config.py', 'w') as f:
@@ -824,7 +830,8 @@ async def get_llm_playlist():
             openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
             llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
             model_name=globals().get('LLM_MODEL_NAME'),
-            base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None
+            base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+            prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
         )
         recommendations = llm_api.get_recommendations(scrobbles)
 
@@ -895,7 +902,8 @@ def trigger_llm_download():
         openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
         llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
         model_name=globals().get('LLM_MODEL_NAME'),
-        base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None
+        base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+        prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
     )
     recommendations = llm_api.get_recommendations(scrobbles)
 
@@ -1330,7 +1338,8 @@ class QueueManager:
             openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
             llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
             model_name=globals().get('LLM_MODEL_NAME'),
-            base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None
+            base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+            prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
         )
         recommendations = llm_api.get_recommendations(scrobbles)
 
