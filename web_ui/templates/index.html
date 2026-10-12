@@ -381,7 +381,7 @@
                         <div id="llmOptions" x-show="llmOptionsVisible" style="padding-left: 20px; border-left: 2px solid var(--border-color); margin-left: 5px;">
                             <div class="form-group">
                                 <label for="llmProvider">LLM Provider:</label>
-                                <select id="llmProvider" style="padding: 8px; border-radius: 4px; background-color: #3a3a5a; color: var(--text-color); border: 1px solid var(--border-color);">
+                                <select id="llmProvider" @change="updateLlmFieldVisibility()" style="padding: 8px; border-radius: 4px; background-color: #3a3a5a; color: var(--text-color); border: 1px solid var(--border-color);">
                                     <option value="gemini" :selected="config && config.LLM_PROVIDER === 'gemini'">Gemini</option>
                                     <option value="openrouter" :selected="config && config.LLM_PROVIDER === 'openrouter'">OpenRouter</option>
                                     <option value="llama" :selected="config && config.LLM_PROVIDER === 'llama'">Llama.cpp</option>

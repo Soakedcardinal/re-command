@@ -87,6 +87,15 @@ document.addEventListener('alpine:init', () => {
             if (this.config.max_concurrent_downloads) {
                 this.maxConcurrentDownloads = this.config.max_concurrent_downloads;
             }
+            this.updateLlmFieldVisibility();
+        },
+
+        updateLlmFieldVisibility() {
+            const provider = document.getElementById('llmProvider')?.value;
+            const baseUrlGroup = document.getElementById('llmBaseUrlGroup');
+            if (baseUrlGroup) {
+                baseUrlGroup.style.display = provider === 'llama' ? 'block' : 'none';
+            }
         },
 
         startQueuePolling() {
