@@ -867,22 +867,27 @@ async def get_llm_playlist():
         recommendations = llm_result.get('recommendations')
 
         if recommendations:
-            # Check Deezer availability for each recommendation and filter out unavailable tracks
-            available_recommendations = []
-            for rec in recommendations:
-                try:
-                    # Check if track is available on Deezer
-                    deezer_link = await deezer_api_global.get_deezer_track_link(rec['artist'], rec['title'])
-                    if deezer_link:
+            if DOWNLOAD_METHOD == "soulseek" and SOULSEEK_USERNAME:
+                available_recommendations = recommendations
+                print(f"LLM generated {len(recommendations)} recommendations (soulseek: Deezer availability gate skipped)")
+            else:
+                # Check Deezer availability for each recommendation and filter out unavailable tracks
+                available_recommendations = []
+                for rec in recommendations:
+                    try:
+                        # Check if track is available on Deezer
+                        deezer_link = await deezer_api_global.get_deezer_track_link(rec['artist'], rec['title'])
+                        if deezer_link:
+                            available_recommendations.append(rec)
+                        else:
+                            print(f"LLM recommendation not available on Deezer: {rec['artist']} - {rec['title']}")
+                    except Exception as e:
+                        print(f"Error checking Deezer availability for {rec['artist']} - {rec['title']}: {e}")
+                        # If checking availability is impossible, include it anyway to avoid losing recommendations due to API errors
                         available_recommendations.append(rec)
-                    else:
-                        print(f"LLM recommendation not available on Deezer: {rec['artist']} - {rec['title']}")
-                except Exception as e:
-                    print(f"Error checking Deezer availability for {rec['artist']} - {rec['title']}: {e}")
-                    # If checking availability is impossible, include it anyway to avoid losing recommendations due to API errors
-                    available_recommendations.append(rec)
 
-            print(f"LLM generated {len(recommendations)} recommendations, {len(available_recommendations)} available on Deezer")
+                print(f"LLM generated {len(recommendations)} recommendations, {len(available_recommendations)} available on Deezer")
+
 
             # Fetch recording_mbid and release_mbid for each available recommendation to enable feedback and album art
             processed_recommendations = []
