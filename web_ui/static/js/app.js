@@ -9,6 +9,7 @@ document.addEventListener('alpine:init', () => {
         isQueuePanelOpen: false,
         isSettingsModalOpen: false,
         isLoading: false,
+        loadingSection: '',
         currentAudio: null,
         llmAbortController: null,
         llmElapsed: 0,
@@ -343,6 +344,7 @@ document.addEventListener('alpine:init', () => {
 
         async discoverListenBrainzPlaylist() {
             this.isLoading = true;
+            this.loadingSection = 'listenbrainz';
             this.listenBrainzPlaylist = [];
             try {
                 const data = await API.getListenBrainzPlaylist();
@@ -357,11 +359,13 @@ document.addEventListener('alpine:init', () => {
                 this.showToast('error', `Network error: ${error.message}`);
             } finally {
                 this.isLoading = false;
+                this.loadingSection = '';
             }
         },
 
         async discoverLastFmPlaylist() {
             this.isLoading = true;
+            this.loadingSection = 'lastfm';
             this.lastFmPlaylist = [];
             try {
                 const data = await API.getLastFmPlaylist();
@@ -375,6 +379,7 @@ document.addEventListener('alpine:init', () => {
                 this.showToast('error', `Network error: ${error.message}`);
             } finally {
                 this.isLoading = false;
+                this.loadingSection = '';
             }
         },
 
@@ -396,6 +401,7 @@ document.addEventListener('alpine:init', () => {
             }
             this.llmAbortController = new AbortController();
             this.isLoading = true;
+            this.loadingSection = 'llm';
             this.llmPlaylist = [];
             this.startLlmElapsedTicker();
             try {
@@ -420,6 +426,7 @@ document.addEventListener('alpine:init', () => {
                 }
             } finally {
                 this.isLoading = false;
+                this.loadingSection = '';
                 this.stopLlmElapsedTicker();
             }
         },

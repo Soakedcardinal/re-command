@@ -123,6 +123,12 @@
                     <button @click="triggerListenBrainzDownload()" class="download-btn">Download Weekly Playlist</button>
                 </div>
                 <div id="listenBrainzPlaylist" class="playlist-content" :class="{ collapsed: isSectionCollapsed('listenBrainz') }">
+                    <template x-if="isLoading && loadingSection === 'listenbrainz' && listenBrainzPlaylist.length === 0">
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100px;">
+                            <div class="spinner" style="margin-right: 8px;"></div>
+                            <span>Fetching ListenBrainz weekly recommendations...</span>
+                        </div>
+                    </template>
                     <template x-for="(song, index) in listenBrainzPlaylist" :key="index">
                         <div class="playlist-item">
                             <div class="album-art-container">
@@ -181,6 +187,12 @@
                     <button @click="triggerLastFmDownload()" class="download-btn">Download Weekly Playlist</button>
                 </div>
                 <div id="lastFmPlaylist" class="playlist-content" :class="{ collapsed: isSectionCollapsed('lastFm') }">
+                    <template x-if="isLoading && loadingSection === 'lastfm' && lastFmPlaylist.length === 0">
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100px;">
+                            <div class="spinner" style="margin-right: 8px;"></div>
+                            <span>Fetching Last.fm weekly recommendations...</span>
+                        </div>
+                    </template>
                     <template x-for="(song, index) in lastFmPlaylist" :key="index">
                         <div class="playlist-item">
                             <div class="album-art-container">
@@ -236,7 +248,7 @@
                     <button @click="triggerLlmDownload()" class="download-btn" x-show="llmPlaylist.length > 0">Download All Suggestions</button>
                 </div>
                 <div id="llmPlaylist" class="playlist-content" :class="{ collapsed: isSectionCollapsed('llm') }">
-                    <template x-if="isLoading && llmPlaylist.length === 0">
+                    <template x-if="isLoading && loadingSection === 'llm' && llmPlaylist.length === 0">
                         <div style="display: flex; align-items: center; justify-content: center; height: 100px;">
                             <div class="spinner" style="margin-right: 8px;"></div>
                             <span x-text="'Querying the LLM for recommendations... ' + llmElapsed + 's elapsed (this can take a while)'"></span>
