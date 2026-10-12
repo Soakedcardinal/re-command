@@ -169,6 +169,18 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
                 llm_recs = llm_api.get_recommendations(scrobbles)
                 if llm_recs:
                     print(f"Found {len(llm_recs)} new LLM recommendations.")
+                    # Discovery-only: skip tracks already in the music library
+                    try:
+                        owned_songs = navidrome_api.get_owned_songs()
+                        kept = []
+                        for rec in llm_recs:
+                            if navidrome_api.song_in_library(rec['artist'], rec['title'], owned_songs):
+                                print(f"  Skipping {rec['artist']} - {rec['title']} (already in library)")
+                            else:
+                                kept.append(rec)
+                        llm_recs = kept
+                    except Exception as e:
+                        print(f"Library check failed: {e}")
                     # Process LLM recommendations to add required metadata fields
                     processed_llm_recs = []
                     for rec in llm_recs:

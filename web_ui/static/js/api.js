@@ -53,8 +53,12 @@ const API = {
         return response.json();
     },
 
-    async triggerLlmDownload() {
-        const response = await fetch('/api/trigger_llm_download', { method: 'POST' });
+    async triggerLlmDownload(tracks) {
+        const response = await fetch('/api/trigger_llm_download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tracks: tracks || [] })
+        });
         return response.json();
     },
 

@@ -397,7 +397,12 @@ document.addEventListener('alpine:init', () => {
                 if (data.status === 'success') {
                     this.llmPlaylist = data.recommendations || [];
                     this.$nextTick(() => this.lazyLoadAlbumArts('llmPlaylist'));
-                    this.showToast('success', `LLM generated ${data.recommendations.length} recommendations`);
+                    const skipped = data.skipped_owned || 0;
+                    const stats = data.llm_stats
+                        ? ` — ${data.llm_stats.latency_s}s, ${data.llm_stats.completion_tokens} tokens`
+                        : '';
+                    this.showToast('success', `LLM generated ${this.llmPlaylist.length} new recommendations${stats}` +
+                        (skipped > 0 ? ` (${skipped} already in your library — hidden)` : ''));
                 } else {
                     this.showToast(data.status, data.message);
                 }
@@ -441,7 +446,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         async triggerLlmDownload() {
-            const data = await API.triggerLlmDownload();
+            const data = await API.triggerLlmDownload(this.llmPlaylist);
             this.showToast(data.status, data.message);
             this.isQueuePanelOpen = true;
             document.body.classList.add('download-queue-panel-open');

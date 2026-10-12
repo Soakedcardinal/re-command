@@ -912,7 +912,22 @@ async def get_llm_playlist():
                 
                 processed_recommendations.append(rec)
 
-            return jsonify({"status": "success", "recommendations": processed_recommendations})
+            skipped_owned = 0
+            try:
+                owned_songs = navidrome_api_global.get_owned_songs()
+                fresh_recommendations = [r for r in processed_recommendations
+                                         if not navidrome_api_global.song_in_library(r['artist'], r['title'], owned_songs)]
+                skipped_owned = len(processed_recommendations) - len(fresh_recommendations)
+                if skipped_owned:
+                    print(f"Library check: {skipped_owned} of {len(processed_recommendations)} recommendations already owned — hidden from the list")
+            except Exception as e:
+                print(f"Library check failed: {e}")
+                fresh_recommendations = processed_recommendations
+
+            payload = {"status": "success", "recommendations": fresh_recommendations, "skipped_owned": skipped_owned}
+            if getattr(llm_api, 'last_stats', None):
+                payload['llm_stats'] = llm_api.last_stats
+            return jsonify(payload)
         else:
             return jsonify({"status": "error", "message": "LLM failed to generate recommendations."})
 
@@ -937,25 +952,33 @@ def trigger_llm_download():
     if LLM_PROVIDER == 'llama' and not LLM_BASE_URL:
         return jsonify({"status": "error", "message": "Base URL is required for Llama.cpp."}), 400
 
-    listenbrainz_api = ListenBrainzAPI(ROOT_LB, TOKEN_LB, USER_LB, LISTENBRAINZ_ENABLED)
-    scrobbles = asyncio.run(listenbrainz_api.get_weekly_scrobbles())
-    if not scrobbles:
-        return jsonify({"status": "info", "message": "No scrobbles to generate recommendations from."})
+    body = request.get_json(silent=True) or {}
+    provided = [
+        {'artist': t.get('artist', ''), 'title': t.get('title', ''), 'album': t.get('album', '')}
+        for t in (body.get('tracks') or [])
+        if isinstance(t, dict) and t.get('artist') and t.get('title')
+    ]
 
-    llm_api = LlmAPI(
-        provider=LLM_PROVIDER,
-        gemini_api_key=LLM_API_KEY if LLM_PROVIDER == 'gemini' else None,
-        openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
-        llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
-        model_name=globals().get('LLM_MODEL_NAME'),
-        base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
-        llama_max_tokens=globals().get('LLM_MAX_TOKENS') if LLM_PROVIDER == 'llama' else None,
-        prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
-    )
-    recommendations = llm_api.get_recommendations(scrobbles)
+    if not provided:
+        listenbrainz_api = ListenBrainzAPI(ROOT_LB, TOKEN_LB, USER_LB, LISTENBRAINZ_ENABLED)
+        scrobbles = asyncio.run(listenbrainz_api.get_weekly_scrobbles())
+        if not scrobbles:
+            return jsonify({"status": "info", "message": "No scrobbles to generate recommendations from."})
 
-    if not recommendations:
-        return jsonify({"status": "error", "message": "LLM failed to generate recommendations for download."})
+        llm_api = LlmAPI(
+            provider=LLM_PROVIDER,
+            gemini_api_key=LLM_API_KEY if LLM_PROVIDER == 'gemini' else None,
+            openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
+            llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
+            model_name=globals().get('LLM_MODEL_NAME'),
+            base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
+            llama_max_tokens=globals().get('LLM_MAX_TOKENS') if LLM_PROVIDER == 'llama' else None,
+            prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
+        )
+        recommendations = llm_api.get_recommendations(scrobbles)
+
+        if not recommendations:
+            return jsonify({"status": "error", "message": "LLM failed to generate recommendations for download."})
 
     download_id = str(uuid.uuid4())
     total = len(recommendations)

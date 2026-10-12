@@ -2,6 +2,8 @@ import requests
 import hashlib
 import os
 import sys
+import re
+import unicodedata
 import shutil
 import asyncio
 from tqdm import tqdm
@@ -106,6 +108,45 @@ class NavidromeAPI:
             song_album = song.get('album', '').strip().lower()
             song_title = song.get('title', '').strip().lower()
             if song_artist == artist.strip().lower() and song_album == album.strip().lower() and song_title == title.strip().lower():
+                return True
+        return False
+
+    @staticmethod
+    def _normalize_for_match(text):
+        """Normalize artist/title text for fuzzy ownership matching."""
+        text = unicodedata.normalize('NFKD', text)
+        text = ''.join(c for c in text if not unicodedata.combining(c))
+        text = text.lower()
+        text = re.sub(r"[^a-z0-9\s]", " ", text)
+        text = re.sub(r"\bthe\b", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def get_owned_songs(self):
+        """Read-only bulk fetch of the library: returns normalized (artist, title) pairs."""
+        salt, token = self._get_navidrome_auth_params()
+        songs = self._get_all_songs(salt, token)
+        owned = set()
+        for song in songs:
+            artist_norm = self._normalize_for_match(song.get('artist', '') or '')
+            title_norm = self._normalize_for_match(song.get('title', '') or '')
+            if artist_norm and title_norm:
+                owned.add((artist_norm, title_norm))
+        return owned
+
+    def song_in_library(self, artist, title, owned_songs):
+        """Fuzzy check whether a track already exists in the owned set."""
+        artist_norm = self._normalize_for_match(artist or '')
+        title_norm = self._normalize_for_match(title or '')
+        if not artist_norm or not title_norm or len(artist_norm) < 3 or len(title_norm) < 3:
+            return False
+        for owned_artist, owned_title in owned_songs:
+            artist_ok = (owned_artist == artist_norm
+                         or owned_artist in artist_norm
+                         or artist_norm in owned_artist)
+            title_ok = (owned_title == title_norm
+                        or owned_title in title_norm
+                        or title_norm in owned_title)
+            if artist_ok and title_ok:
                 return True
         return False
 
