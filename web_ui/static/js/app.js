@@ -11,6 +11,9 @@ document.addEventListener('alpine:init', () => {
         isLoading: false,
         currentAudio: null,
         llmAbortController: null,
+        llmElapsed: 0,
+        llmStartedAt: null,
+        llmTicker: null,
         albumRecommendationEnabled: false,
         collapsedSections: {},
         hasAnyConfig: false,
@@ -368,13 +371,26 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        startLlmElapsedTicker() {
+            this.llmStartedAt = Date.now();
+            this.llmElapsed = 0;
+            if (this.llmTicker) clearInterval(this.llmTicker);
+            this.llmTicker = setInterval(() => {
+                this.llmElapsed = Math.floor((Date.now() - this.llmStartedAt) / 1000);
+            }, 1000);
+        },
+        stopLlmElapsedTicker() {
+            if (this.llmTicker) { clearInterval(this.llmTicker); this.llmTicker = null; }
+        },
         async discoverLlmPlaylist() {
             if (this.llmAbortController) {
+                await API.cancelLlm().catch(() => {});
                 this.llmAbortController.abort();
             }
             this.llmAbortController = new AbortController();
             this.isLoading = true;
             this.llmPlaylist = [];
+            this.startLlmElapsedTicker();
             try {
                 const data = await API.getLlmPlaylist(this.llmAbortController.signal);
                 if (data.status === 'success') {
@@ -392,14 +408,19 @@ document.addEventListener('alpine:init', () => {
                 }
             } finally {
                 this.isLoading = false;
+                this.stopLlmElapsedTicker();
             }
         },
 
-        cancelLlmQuery() {
-            if (this.llmAbortController) {
-                this.llmAbortController.abort();
-                this.showToast('info', 'LLM query cancelled');
+        async cancelLlmQuery() {
+            if (!this.llmAbortController) {
+                return;
             }
+            try {
+                await API.cancelLlm();
+            } catch (e) { /* fall through: still drop the local fetch */ }
+            this.llmAbortController.abort();
+            this.showToast('info', 'LLM query cancelled');
         },
 
         async triggerListenBrainzDownload() {

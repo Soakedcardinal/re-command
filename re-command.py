@@ -157,7 +157,9 @@ async def process_recommendations(source="all", bypass_playlist_check=False, dow
                 provider=LLM_PROVIDER,
                 gemini_api_key=LLM_API_KEY if LLM_PROVIDER == 'gemini' else None,
                 openrouter_api_key=LLM_API_KEY if LLM_PROVIDER == 'openrouter' else None,
+                llama_api_key=LLM_API_KEY if LLM_PROVIDER == 'llama' else None,
                 model_name=globals().get('LLM_MODEL_NAME'),
+                base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
                 prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
             )
             # Get weekly scrobbles for LLM

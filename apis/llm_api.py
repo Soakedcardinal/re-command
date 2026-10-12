@@ -2,6 +2,7 @@ import requests
 import json
 import sys
 import re
+import time
 
 # Built-in prompt template; {listening_history} is replaced with the scrobble JSON.
 DEFAULT_PROMPT_TEMPLATE = """You are a music expert assistant. Based on the following list of recently listened tracks in JSON format, recommend 25 new songs that this listener might like; only include tracks that are not already in the listening history.
@@ -19,6 +20,9 @@ Example response format:
 ]
 """
 
+class LlmCancelled(Exception):
+    """Raised when a streaming LLM generation is cancelled by the caller."""
+
 
 class LlmAPI:
     def __init__(self, provider, gemini_api_key=None, openrouter_api_key=None, llama_api_key=None, model_name=None, base_url=None, prompt_template=None):
@@ -29,6 +33,7 @@ class LlmAPI:
         self.model_name = model_name
         self.base_url = base_url
         self.prompt_template = prompt_template
+        self.last_stats = None
 
         if self.provider == 'gemini' and self.gemini_api_key:
             # We use the REST API directly for Gemini to avoid version conflicts in the SDK
@@ -68,10 +73,11 @@ class LlmAPI:
             return template.replace('{listening_history}', scrobbles_json)
         return f"{template}\n\nMy listening history:\n{scrobbles_json}\n"
 
-    def get_recommendations(self, scrobbles):
+    def get_recommendations(self, scrobbles, cancel_event=None):
         """
         Gets music recommendations from the configured LLM provider.
         'scrobbles' is a list of dicts with 'artist' and 'track'.
+        'cancel_event' is an optional threading.Event; setting it aborts the request.
         """
         if not scrobbles:
             return []
@@ -112,14 +118,97 @@ class LlmAPI:
                 data = {
                     "model": llama_model,
                     "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7,
-                    "max_tokens": 1000
                 }
-                api_response = requests.post(self.llama_url, headers=self.headers, json=data)
+                data["stream"] = True
+                self.last_stats = {'prompt_chars': len(prompt)}
+                print(f"LLM request: prompt_chars={len(prompt)} "
+                      f"model={llama_model} url={self.llama_url}", file=sys.stderr)
+                print(f"LLM prompt head: {prompt[:400]!r}", file=sys.stderr)
+                t0 = time.time()
+                try:
+                    api_response = requests.post(self.llama_url, headers=self.headers, json=data,
+                                                 stream=True, timeout=(10, None))
+                except requests.RequestException as e:
+                    if cancel_event is not None and cancel_event.is_set():
+                        latency = time.time() - t0
+                        print(f"LLM generation cancelled after {latency:.1f}s (connect phase)", file=sys.stderr)
+                        self.last_stats = {'latency_s': round(latency, 1), 'completion_tokens': 0,
+                                           'finish_reason': 'cancelled', 'reasoning_chars': 0,
+                                           'content_chars': 0, 'prompt_chars': len(prompt)}
+                        raise LlmCancelled(f"cancelled by request: {e}") from e
+                    raise
                 if api_response.status_code != 200:
                     print(f"LLM API Error: {api_response.status_code} {api_response.text}", file=sys.stderr)
                 api_response.raise_for_status()
-                response_text = api_response.json()['choices'][0]['message']['content']
+                reasoning_parts = []
+                content_parts = []
+                finish_reason = None
+                chunk_count = 0
+                for line in api_response.iter_lines(decode_unicode=True):
+                    if cancel_event is not None and cancel_event.is_set():
+                        latency = time.time() - t0
+                        api_response.close()
+                        print(f"LLM generation cancelled after {latency:.1f}s "
+                              f"({chunk_count} chunk(s), reasoning={len(''.join(reasoning_parts))} chars)", file=sys.stderr)
+                        self.last_stats = {
+                            'latency_s': round(latency, 1),
+                            'completion_tokens': chunk_count,
+                            'finish_reason': 'cancelled',
+                            'reasoning_chars': len(''.join(reasoning_parts)),
+                            'content_chars': len(''.join(content_parts)),
+                            'prompt_chars': len(prompt),
+                        }
+                        partial_reasoning = ''.join(reasoning_parts)
+                        if partial_reasoning:
+                            print(f"LLM reasoning tail: {partial_reasoning[-500:]!r}", file=sys.stderr)
+                        partial_content = ''.join(content_parts)
+                        if partial_content:
+                            print(f"LLM content tail: {partial_content[-500:]!r}", file=sys.stderr)
+                        raise LlmCancelled("cancelled by request")
+                    if not line or not line.startswith('data:'):
+                        continue
+                    payload = line[len('data:'):].strip()
+                    if payload == '[DONE]':
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    choices = chunk.get('choices') or []
+                    if choices:
+                        delta = choices[0].get('delta') or {}
+                        if delta.get('content'):
+                            content_parts.append(delta['content'])
+                        reasoning_delta = delta.get('reasoning_content') or delta.get('reasoning')
+                        if reasoning_delta:
+                            reasoning_parts.append(reasoning_delta)
+                        if choices[0].get('finish_reason'):
+                            finish_reason = choices[0]['finish_reason']
+                        chunk_count += 1
+                latency = time.time() - t0
+                reasoning = ''.join(reasoning_parts)
+                response_text = ''.join(content_parts)
+                print(f"LLM response: latency={latency:.1f}s "
+                      f"completion_chunks={chunk_count} "
+                      f"finish_reason={finish_reason} "
+                      f"reasoning_chars={len(reasoning)} "
+                      f"content_chars={len(response_text or '')}", file=sys.stderr)
+                self.last_stats = {
+                    'latency_s': round(latency, 1),
+                    'completion_tokens': chunk_count,
+                    'finish_reason': finish_reason,
+                    'reasoning_chars': len(reasoning),
+                    'content_chars': len(response_text or ''),
+                    'prompt_chars': len(prompt),
+                }
+                if reasoning:
+                    print(f"LLM reasoning head: {reasoning[:300]!r}", file=sys.stderr)
+                if not response_text:
+                    print(f"LLM API Error: model returned no content "
+                          f"(finish_reason={finish_reason}, reasoning={len(reasoning)} chars)",
+                          file=sys.stderr)
+                    return []
+                print(f"LLM content head: {response_text[:300]!r}", file=sys.stderr)
             else:
                 return []
 
@@ -157,6 +246,8 @@ class LlmAPI:
                     continue
 
             return normalized_recommendations
+        except LlmCancelled:
+            raise
         except Exception as e:
             print(f"Error getting recommendations from {self.provider}: {e}", file=sys.stderr)
             return []

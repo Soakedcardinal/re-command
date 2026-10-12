@@ -48,6 +48,11 @@ const API = {
         return response.json();
     },
 
+    async cancelLlm() {
+        const response = await fetch('/api/cancel_llm', { method: 'POST' });
+        return response.json();
+    },
+
     async triggerLlmDownload() {
         const response = await fetch('/api/trigger_llm_download', { method: 'POST' });
         return response.json();

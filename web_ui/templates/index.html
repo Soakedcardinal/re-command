@@ -239,7 +239,7 @@
                     <template x-if="isLoading && llmPlaylist.length === 0">
                         <div style="display: flex; align-items: center; justify-content: center; height: 100px;">
                             <div class="spinner" style="margin-right: 8px;"></div>
-                            <span>Querying the LLM for recommendations... (this can take a while)</span>
+                            <span x-text="'Querying the LLM for recommendations... ' + llmElapsed + 's elapsed (this can take a while)'"></span>
                             <button @click="cancelLlmQuery()" style="margin-left: 15px; padding: 5px 10px; background-color: var(--error-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
                         </div>
                     </template>

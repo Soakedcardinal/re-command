@@ -20,7 +20,7 @@ from utils import initialize_streamrip_db, DeezerAuthError
 from apis.listenbrainz_api import ListenBrainzAPI
 from apis.navidrome_api import NavidromeAPI
 from apis.deezer_api import DeezerAPI
-from apis.llm_api import LlmAPI, DEFAULT_PROMPT_TEMPLATE
+from apis.llm_api import LlmAPI, DEFAULT_PROMPT_TEMPLATE, LlmCancelled
 from downloaders.track_downloader import TrackDownloader
 from downloaders.link_downloader import LinkDownloader
 from utils import Tagger
@@ -39,6 +39,9 @@ CRON_COMMAND = (
 # Key: download_id (UUID), Value: { 'artist', 'title', 'status', 'start_time', 'message' }
 downloads_queue = {}
 BATCH_DOWNLOAD_LOCK = "/tmp/recommand_batch_download.lock"
+
+# In-flight LLM generation state (single gunicorn process)
+llm_run_state = {'cancel': threading.Event(), 'thread': None}
 
 # Queue manager state
 _download_manager = None
@@ -833,7 +836,27 @@ async def get_llm_playlist():
             base_url=globals().get('LLM_BASE_URL') if LLM_PROVIDER == 'llama' else None,
             prompt_template=(globals().get('LLM_PROMPT_TEMPLATE') or None)
         )
-        recommendations = llm_api.get_recommendations(scrobbles)
+        cancel_event = threading.Event()
+        llm_result = {}
+
+        def _generate():
+            try:
+                llm_result['recommendations'] = llm_api.get_recommendations(scrobbles, cancel_event=cancel_event)
+            except LlmCancelled:
+                llm_result['cancelled'] = True
+            except Exception as e:
+                llm_result['error'] = str(e)
+                print(f"LLM generation thread error: {e}", file=sys.stderr)
+                traceback.print_exc()
+
+        llm_run_state['cancel'] = cancel_event
+        llm_run_state['thread'] = threading.Thread(target=_generate, daemon=True)
+        llm_run_state['thread'].start()
+        llm_run_state['thread'].join()
+
+        if llm_result.get('cancelled'):
+            return jsonify({"status": "cancelled", "message": "LLM generation stopped."})
+        recommendations = llm_result.get('recommendations')
 
         if recommendations:
             # Check Deezer availability for each recommendation and filter out unavailable tracks
@@ -883,6 +906,16 @@ async def get_llm_playlist():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": f"An error occurred: {e}"}), 500
+
+@app.route('/api/cancel_llm', methods=['POST'])
+def cancel_llm():
+    """Cancel an in-flight LLM generation."""
+    ev = llm_run_state.get('cancel')
+    thread = llm_run_state.get('thread')
+    if thread and thread.is_alive() and ev and not ev.is_set():
+        ev.set()
+        return jsonify({"status": "success", "message": "LLM generation stopped."})
+    return jsonify({"status": "info", "message": "No LLM generation currently running."})
 
 @app.route('/api/trigger_llm_download', methods=['POST'])
 def trigger_llm_download():
