@@ -3,6 +3,7 @@ import json
 import sys
 import re
 import time
+import os
 
 # Built-in prompt template; {listening_history} is replaced with the scrobble JSON.
 DEFAULT_PROMPT_TEMPLATE = """You are a music expert assistant. Based on the following list of recently listened tracks in JSON format, recommend 25 new songs that this listener might like; only include tracks that are not already in the listening history.
@@ -128,6 +129,14 @@ class LlmAPI:
                       f"max_tokens={'omitted (server window)' if not self.llama_max_tokens else self.llama_max_tokens} "
                       f"model={llama_model} url={self.llama_url}", file=sys.stderr)
                 print(f"LLM prompt head: {prompt[:400]!r}", file=sys.stderr)
+                # Optional debug capture (RECOMMAND_LLM_DEBUG)
+                debug_dump = os.getenv("RECOMMAND_LLM_DEBUG", "").strip().lower() in ("1", "true", "yes", "on")
+                if debug_dump:
+                    try:
+                        with open('/tmp/llm_last_prompt.txt', 'w') as f:
+                            f.write(prompt)
+                    except Exception as e:
+                        print(f"LLM Debug: could not write /tmp/llm_last_prompt.txt: {e}", file=sys.stderr)
                 t0 = time.time()
                 try:
                     api_response = requests.post(self.llama_url, headers=self.headers, json=data,
@@ -162,6 +171,14 @@ class LlmAPI:
                             'content_chars': len(''.join(content_parts)),
                             'prompt_chars': len(prompt),
                         }
+                        if debug_dump:
+                            try:
+                                with open('/tmp/llm_last_response.txt', 'w') as f:
+                                    json.dump({'finish_reason': 'cancelled',
+                                               'reasoning': ''.join(reasoning_parts),
+                                               'content': ''.join(content_parts)}, f, indent=2)
+                            except Exception as e:
+                                print(f"LLM Debug: could not write /tmp/llm_last_response.txt: {e}", file=sys.stderr)
                         partial_reasoning = ''.join(reasoning_parts)
                         if partial_reasoning:
                             print(f"LLM reasoning tail: {partial_reasoning[-500:]!r}", file=sys.stderr)
@@ -205,6 +222,14 @@ class LlmAPI:
                     'content_chars': len(response_text or ''),
                     'prompt_chars': len(prompt),
                 }
+                if debug_dump:
+                    try:
+                        with open('/tmp/llm_last_response.txt', 'w') as f:
+                            json.dump({'finish_reason': finish_reason,
+                                       'reasoning': reasoning,
+                                       'content': response_text}, f, indent=2)
+                    except Exception as e:
+                        print(f"LLM Debug: could not write /tmp/llm_last_response.txt: {e}", file=sys.stderr)
                 if reasoning:
                     print(f"LLM reasoning head: {reasoning[:300]!r}", file=sys.stderr)
                 if not response_text:
