@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class SoulseekQueueManager:
     def __init__(self, username, password, download_dir, music_library_path,
                  search_timeout=15, keep_alive=True, min_quality=128,
-                 share_music=False):
+                 share_music=False, listening_port=60000):
         self.username = username
         self.password = password
         self.download_dir = download_dir
@@ -30,6 +30,7 @@ class SoulseekQueueManager:
         self.keep_alive = keep_alive
         self.min_quality = min_quality  # 0=lossless, 128, 192, 320
         self.share_music = share_music
+        self.listening_port = listening_port
 
         self._loop = None
         self._client = None
@@ -93,6 +94,11 @@ class SoulseekQueueManager:
                 continue
             except Exception as e:
                 logger.exception("queue worker error: %s", e)
+                # A dead session fails every subsequent item with "cannot send
+                # data"; drop the client so the next item reconnects fresh
+                msg = str(e).lower()
+                if "connection" in msg or "not open" in msg or "listening" in msg:
+                    await self._disconnect_client()
         await self._disconnect_client()
 
     async def _ensure_client(self):
@@ -102,7 +108,13 @@ class SoulseekQueueManager:
                     username=self.username,
                     password=self.password,
                 ),
-                network=dict(upnp=dict(enabled=False)),
+                network=dict(
+                    upnp=dict(enabled=False),
+                    # Re-connect and re-login automatically if the server
+                    # drops us mid-run
+                    server=dict(reconnect=dict(auto=True)),
+                    listening=dict(port=self.listening_port),
+                ),
                 shares=dict(
                     scan_on_start=False,
                     directories=[],
@@ -231,6 +243,10 @@ class SoulseekQueueManager:
                                    parent_download_id=parent_id)
         except Exception as e:
             logger.exception("download failed for %s - %s", artist, title)
+            # Drop a dead session so the next item reconnects fresh
+            msg = str(e).lower()
+            if "connection" in msg or "not open" in msg or "listening" in msg:
+                await self._disconnect_client()
             self._write_status(download_id, "failed", str(e),
                                f"{artist} - {title}",
                                parent_download_id=parent_id)

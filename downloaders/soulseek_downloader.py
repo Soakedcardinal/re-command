@@ -21,15 +21,21 @@ class SoulseekDownloader:
         self.search_timeout = search_timeout
         self.max_results = max_results
 
-    async def create_client(self):
+    async def create_client(self, listening_port=None):
+        network = dict(
+            upnp=dict(enabled=False),
+            # Re-connect and re-login automatically if the server drops us;
+            # otherwise a stale session fails every download until restart
+            server=dict(reconnect=dict(auto=True)),
+        )
+        if listening_port:
+            network["listening"] = dict(port=listening_port)
         settings = Settings(
             credentials=CredentialsSettings(
                 username=self.username,
                 password=self.password,
             ),
-            network=dict(
-                upnp=dict(enabled=False),
-            ),
+            network=network,
             shares=dict(
                 scan_on_start=False,
                 directories=[],

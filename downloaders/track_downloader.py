@@ -22,17 +22,40 @@ class TrackDownloader:
         self._soulseek_downloader = None
 
     async def _ensure_soulseek(self):
-        if self._soulseek_client is None:
-            from downloaders.soulseek_downloader import SoulseekDownloader
-            self._soulseek_downloader = SoulseekDownloader(
-                username=config.SOULSEEK_USERNAME,
-                password=config.SOULSEEK_PASSWORD,
-                download_dir=config.TEMP_DOWNLOAD_FOLDER,
-                search_timeout=config.SOULSEEK_SEARCH_TIMEOUT,
-            )
-            self._soulseek_client = await self._soulseek_downloader.create_client()
-            await self._soulseek_client.start()
-            await self._soulseek_client.login()
+        if self._soulseek_client is not None:
+            return
+        from downloaders.soulseek_downloader import SoulseekDownloader
+        self._soulseek_downloader = SoulseekDownloader(
+            username=config.SOULSEEK_USERNAME,
+            password=config.SOULSEEK_PASSWORD,
+            download_dir=config.TEMP_DOWNLOAD_FOLDER,
+            search_timeout=config.SOULSEEK_SEARCH_TIMEOUT,
+        )
+        last_error = None
+        # The web UI keeps a persistent Soulseek client that holds the default
+        # listening port; if it's taken, walk up until we find a free one.
+        for attempt in range(5):
+            port = config.SOULSEEK_LISTENING_PORT + attempt
+            client = await self._soulseek_downloader.create_client(listening_port=port)
+            try:
+                await client.start()
+                await client.login()
+            except Exception as e:
+                last_error = e
+                msg = str(e).lower()
+                if "listening" not in msg and "address already in use" not in msg:
+                    raise
+                try:
+                    await client.stop()
+                except Exception:
+                    pass
+                continue
+            # Only cache the client once it is fully connected and logged in;
+            # a half-initialized client would fail every subsequent track with
+            # "cannot send data, connection is not open"
+            self._soulseek_client = client
+            return
+        raise last_error
 
     async def close_soulseek(self):
         if self._soulseek_client:
@@ -337,22 +360,39 @@ class TrackDownloader:
 
         await self._ensure_soulseek()
         try:
-            filepath = await self._soulseek_downloader.search_and_download_with_client(
-                self._soulseek_client,
-                song_info['artist'],
-                song_info['title'],
-                search_timeout=config.SOULSEEK_SEARCH_TIMEOUT,
-            )
+            filepath = await self._download_track_soulseek_once(song_info, temp_download_folder)
         except asyncio.TimeoutError:
             print(f"  ⏱ Soulseek search timed out for {song_info['artist']} - {song_info['title']}")
             return None
         except Exception as e:
             print(f"  ❌ Soulseek error for {song_info['artist']} - {song_info['title']}: {e}")
-            return None
+            # The persistent session may be stale (server dropped us). Reconnect
+            # from scratch and retry the track once before giving up.
+            print("  Soulseek: reconnecting and retrying once...")
+            await self.close_soulseek()
+            try:
+                await self._ensure_soulseek()
+                filepath = await self._download_track_soulseek_once(song_info, temp_download_folder)
+            except asyncio.TimeoutError:
+                print(f"  ⏱ Soulseek search timed out for {song_info['artist']} - {song_info['title']}")
+                return None
+            except Exception as e2:
+                print(f"  ❌ Soulseek retry failed for {song_info['artist']} - {song_info['title']}: {e2}")
+                await self.close_soulseek()
+                return None
+
         if filepath:
             dir_path = os.path.dirname(filepath)
             os.system(f'chown -R 1000:1000 "{dir_path}"')
         return filepath
+
+    async def _download_track_soulseek_once(self, song_info, temp_download_folder):
+        return await self._soulseek_downloader.search_and_download_with_client(
+            self._soulseek_client,
+            song_info['artist'],
+            song_info['title'],
+            search_timeout=config.SOULSEEK_SEARCH_TIMEOUT,
+        )
 
     def _debug_list_files(self, directory):
         """Lists all files in the directory for debugging purposes."""

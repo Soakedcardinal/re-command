@@ -74,6 +74,7 @@ echo "SOULSEEK_SEARCH_TIMEOUT = int(os.getenv(\"SOULSEEK_SEARCH_TIMEOUT\", \"${R
 echo "SOULSEEK_KEEP_ALIVE = os.getenv(\"SOULSEEK_KEEP_ALIVE\", \"${RECOMMAND_SOULSEEK_KEEP_ALIVE:-True}\").lower() == \"true\"" >> config.py
 echo "SOULSEEK_MIN_QUALITY = int(os.getenv(\"SOULSEEK_MIN_QUALITY\", \"${RECOMMAND_SOULSEEK_MIN_QUALITY:-128}\"))" >> config.py
 echo "SOULSEEK_SHARE_MUSIC = os.getenv(\"SOULSEEK_SHARE_MUSIC\", \"${RECOMMAND_SOULSEEK_SHARE_MUSIC:-False}\").lower() == \"true\"" >> config.py
+echo "SOULSEEK_LISTENING_PORT = int(os.getenv(\"SOULSEEK_LISTENING_PORT\", \"${RECOMMAND_SOULSEEK_LISTENING_PORT:-60000}\"))" >> config.py
 echo "" >> config.py
 
 # Album Recommendation Settings

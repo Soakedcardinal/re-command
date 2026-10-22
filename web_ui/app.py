@@ -1122,6 +1122,7 @@ def _get_soulseek_queue():
             keep_alive=SOULSEEK_KEEP_ALIVE,
             min_quality=SOULSEEK_MIN_QUALITY,
             share_music=SOULSEEK_SHARE_MUSIC,
+            listening_port=SOULSEEK_LISTENING_PORT,
         )
         soulseek_queue.start()
     return soulseek_queue
